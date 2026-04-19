@@ -115,6 +115,60 @@ pytest tests/ -v
 
 ---
 
+## Testing with Ollama (Live LLM Reasoning)
+
+When Ollama is running, agents use a LangChain + Ollama pipeline for genuine
+LLM-driven reasoning instead of the rule-based fallback.
+
+### 1. Check if Ollama is installed
+
+```bash
+ollama --version
+```
+
+### 2. Pull a model
+
+```bash
+ollama pull llama3    # ~5 GB, good balance of speed and quality
+# or
+ollama pull mistral   # smaller, faster
+```
+
+### 3. Start the Ollama server
+
+```bash
+ollama serve
+```
+
+Keep it running in a terminal or as a background process.
+
+### 4. Launch the dashboard with LLM enabled
+
+```bash
+streamlit run app.py
+```
+
+In the sidebar, toggle **Enable LLM Reasoning** and select your model.
+After initialising the sandbox, click **Step Simulation** — agent reasoning
+traces will appear in the **💭 Thought Stream** panel.
+
+If Ollama is not running, the app falls back to rule-based reasoning automatically
+(the toggle will show a warning or the model select will be greyed out).
+
+### Verifying Ollama is responding
+
+```bash
+curl http://localhost:11434/api/generate -d '{
+  "model": "llama3",
+  "prompt": "Why might a bank reduce its green assets during a carbon tax hike?",
+  "stream": false
+}'
+```
+
+A JSON response with an `response` field confirms Ollama is up.
+
+---
+
 ## MIT Licence
 
 Copyright (c) 2025 Project PANA Contributors
