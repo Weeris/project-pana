@@ -4,9 +4,9 @@ from __future__ import annotations
 import os
 from typing import TYPE_CHECKING
 
+from langchain_core.prompts import PromptTemplate
+from langchain_core.messages import HumanMessage
 from langchain_ollama import ChatOllama
-from langchain.prompts import PromptTemplate
-from langchain.schema import HumanMessage
 
 if TYPE_CHECKING:
     from src.agents.base import BasePanaAgent
