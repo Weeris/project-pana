@@ -51,7 +51,8 @@ class PanaModel(mesa.Model):
         )
         self.grid = NetworkGrid(self.network)
 
-        # Create agents
+        # Create agents — stored in our own list for cross-version compatibility
+        # (mesa 2.x model.agents is empty; mesa 3.x model.agents works)
         self._pana_agents: list[BasePanaAgent] = []
         for i in range(num_banks):
             j = self.jurisdictions[i % len(self.jurisdictions)]
@@ -69,12 +70,21 @@ class PanaModel(mesa.Model):
         self._agent_pos = {a.agent_id: i for i, a in enumerate(self._pana_agents)}
 
     @property
+    def agents(self) -> list[BasePanaAgent]:
+        """
+        Compatible agent accessor for both mesa 2.x and 3.x.
+        mesa 2.x Model.agents is never populated (agents live in schedule.agents),
+        so we use our own _pana_agents list as the authoritative source.
+        """
+        return self._pana_agents
+
+    @property
     def all_bank_agents(self) -> list[BankAgent]:
-        return [a for a in self.schedule.agents if isinstance(a, BankAgent)]
+        return [a for a in self._pana_agents if isinstance(a, BankAgent)]
 
     @property
     def all_firm_agents(self) -> list[FirmAgent]:
-        return [a for a in self.schedule.agents if isinstance(a, FirmAgent)]
+        return [a for a in self._pana_agents if isinstance(a, FirmAgent)]
 
     def set_policy(self, policy_string: str) -> None:
         self.global_policy_string = policy_string
@@ -103,14 +113,14 @@ class PanaModel(mesa.Model):
         return {
             "step": self.current_step,
             "policy": self.global_policy_string,
-            "num_agents": len(self.schedule.agents),
+            "num_agents": len(self._pana_agents),
         }
 
     def get_systemic_metrics(self) -> dict:
         """
         Compute aggregate metrics for the dashboard.
         """
-        all_agents = list(self.schedule.agents)
+        all_agents = self._pana_agents
         total_esg = sum(a.esg_score for a in all_agents) / max(len(all_agents), 1)
         total_liquidity_gap = sum(
             self.contagion_engine.compute_liquidity_gap(
