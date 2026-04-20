@@ -35,36 +35,76 @@ class GlobalOrderBook:
     bond_asks:   list[tuple[float, float]] = field(default_factory=list)
 
     def add_order(self, order: Order) -> dict:
-        """Add order to book; return fill dict if match found."""
+        """Add order to book; match against all contra-side orders at qualifying prices."""
         if order.asset == AssetType.CARBON_CREDIT:
             bids, asks = self.carbon_bids, self.carbon_asks
         else:
             bids, asks = self.bond_bids, self.bond_asks
 
         if order.side == "buy":
-            # Check if a sell order exists at or below our bid
+            # Walk the book: collect all asks at or below our bid price
             fills = [(p, q) for p, q in asks if p <= order.price]
             if fills:
-                fill_price, fill_qty = fills[0]
-                execution_price = fill_price
-                # Remove the filled ask
-                asks[:] = [x for x in asks if x != (fill_price, fill_qty)]
+                # Sort by price ascending (best ask first)
+                fills.sort(key=lambda x: x[0])
+                total_qty = 0.0
+                total_cost = 0.0
+                remaining_qty = order.quantity
+                new_asks = []
+                for fill_price, fill_qty in fills:
+                    if remaining_qty <= 0:
+                        new_asks.append((fill_price, fill_qty))
+                        continue
+                    taken = min(fill_qty, remaining_qty)
+                    total_qty += taken
+                    total_cost += taken * fill_price
+                    remaining_qty -= taken
+                    if fill_qty > taken:
+                        new_asks.append((fill_price, fill_qty - taken))
+                # Update book: remaining unmatched asks
+                unmatched_asks = [(p, q) for p, q in asks if p > order.price]
+                if order.side == "buy":
+                    self.carbon_bids if order.asset == AssetType.CARBON_CREDIT else self.bond_bids
+                    if order.asset == AssetType.CARBON_CREDIT:
+                        self.carbon_asks = unmatched_asks + new_asks
+                    else:
+                        self.bond_asks = unmatched_asks + new_asks
+                avg_price = total_cost / total_qty if total_qty > 0 else 0
                 return {
                     "matched": True,
-                    "price": execution_price,
-                    "qty": min(fill_qty, order.quantity),
+                    "price": avg_price,
+                    "qty": total_qty,
                 }
             bids.append((order.price, order.quantity))
         else:
+            # Sell: walk up the book against bids at or above our ask price
             fills = [(p, q) for p, q in bids if p >= order.price]
             if fills:
-                fill_price, fill_qty = fills[0]
-                execution_price = fill_price
-                bids[:] = [x for x in bids if x != (fill_price, fill_qty)]
+                fills.sort(key=lambda x: -x[0])  # best bid (highest) first
+                total_qty = 0.0
+                total_revenue = 0.0
+                remaining_qty = order.quantity
+                new_bids = []
+                for fill_price, fill_qty in fills:
+                    if remaining_qty <= 0:
+                        new_bids.append((fill_price, fill_qty))
+                        continue
+                    taken = min(fill_qty, remaining_qty)
+                    total_qty += taken
+                    total_revenue += taken * fill_price
+                    remaining_qty -= taken
+                    if fill_qty > taken:
+                        new_bids.append((fill_price, fill_qty - taken))
+                unmatched_bids = [(p, q) for p, q in bids if p < order.price]
+                if order.asset == AssetType.CARBON_CREDIT:
+                    self.carbon_bids = unmatched_bids + new_bids
+                else:
+                    self.bond_bids = unmatched_bids + new_bids
+                avg_price = total_revenue / total_qty if total_qty > 0 else 0
                 return {
                     "matched": True,
-                    "price": execution_price,
-                    "qty": min(fill_qty, order.quantity),
+                    "price": avg_price,
+                    "qty": total_qty,
                 }
             asks.append((order.price, order.quantity))
 

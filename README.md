@@ -1,8 +1,8 @@
-# Project PANA (พนา) 🌲
+# Project PANA 🌲
 
 > *The Forester's Living Sandbox for Green Swan Events*
 
-**PANA** (Thai: พนา, pronounced *pa-naa*) is an Agentic AI-driven, cross-border ESG
+**PANA** is an Agentic AI-driven, cross-border ESG
 transition simulator. Central Banks and financial regulators observe emergent
 systemic reflexivity — the feedback loops between ESG policy shocks, agent
 behaviour, and market contagion — inside a controlled computational sandbox.
@@ -11,7 +11,7 @@ behaviour, and market contagion — inside a controlled computational sandbox.
 
 ## The Forest Metaphor
 
-In Thai, **พนา** means "forest." Just as a forester tends a living ecosystem —
+Just as a forester tends a living ecosystem —
 nurturing growth, watching for disease, understanding how fire spreads through
 connected trees — the PANA dashboard lets regulators tend the financial ecosystem.
 

@@ -55,7 +55,7 @@ class TestFullAgentLoop:
         firms = model.all_firm_agents
         assert all(isinstance(b.balance_sheet, BalanceSheet) for b in banks)
         assert all(b.compute_tier1_capital() is not None for b in banks)
-        assert all(f.esg_score == 75.0 for f in firms)  # default
+        assert all(40.0 <= f.esg_score <= 100.0 for f in firms)  # range from random init
 
     def test_policy_roundtrip(self, model):
         policy = "Carbon tax $100/t in EU | Green subsidy 20%"
@@ -123,11 +123,16 @@ class TestFullAgentLoop:
         agent.esg_score = 80.0
 
         policy = "Carbon tax $100/t in EU"
-        thought = orchestrator.reason_for_agent(agent, policy)
+        result = orchestrator.reason_for_agent(agent, policy)
 
+        # Returns (thought, action) tuple
+        assert isinstance(result, tuple)
+        assert len(result) == 2
+        thought, action = result
         assert isinstance(thought, str)
         assert len(thought) > 0
         assert "bank-test" in thought or "Bank" in thought or "tier1" in thought.lower()
+        assert action in ("HOLD", "LIQUIDATE_BROWN", "BUY_GREEN", "HEDGE", "DELEVERAGE")
 
     def test_full_loop_step(self, model, orchestrator):
         """One complete simulation step through all components."""
@@ -148,8 +153,8 @@ class TestFullAgentLoop:
             if shock_intensity > 0 and agent.balance_sheet.Brown_Assets > 0:
                 agent.balance_sheet.Brown_Assets *= (1 - shock_intensity)
 
-            # Reason (LLM or fallback)
-            thought = orchestrator.reason_for_agent(agent, policy)
+            # Reason (LLM or fallback); returns (thought, action) tuple
+            thought, action = orchestrator.reason_for_agent(agent, policy)
             agent.log_thought(thought)
             thought_lines.append(thought)
 
@@ -177,7 +182,7 @@ class TestFullAgentLoop:
         for step_num in range(1, 6):
             model.set_policy(f"Step {step_num}: Carbon tax ${step_num * 10}/t")
             for agent in model.schedule.agents:
-                thought = orchestrator.reason_for_agent(
+                thought, action = orchestrator.reason_for_agent(
                     agent, f"Step {step_num} policy"
                 )
                 agent.log_thought(thought)

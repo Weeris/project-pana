@@ -1,6 +1,7 @@
 """Jurisdiction: Owns interest rates and ESG regulations for a region."""
 
 from __future__ import annotations
+
 from dataclasses import dataclass
 
 
@@ -28,6 +29,10 @@ class Jurisdiction:
     def apply_green_subsidy(self, green_capex: float) -> float:
         """Calculate subsidy received for green capex."""
         return green_capex * self.green_subsidy
+
+    def effective_green_yield(self, base_yield: float) -> float:
+        """Effective yield on green assets including subsidy boost."""
+        return base_yield * (1.0 + self.green_subsidy)
 
     def policy_summary(self) -> str:
         return (

@@ -71,13 +71,16 @@ class PanaLLMOrchestrator:
         agent: "BasePanaAgent",
         policy_string: str,
         liquidation_pct: float = 20.0,
-    ) -> str:
+    ) -> tuple[str, str]:
         """
         Produce a reasoning trace and suggested action for an agent.
+        Returns (thought: str, action: str) tuple.
         """
 
         if not self.use_llm or self.llm is None:
-            return self._rule_based_reasoning(agent, policy_string, liquidation_pct)
+            thought = self._rule_based_reasoning(agent, policy_string, liquidation_pct)
+            action = self.parse_action(thought)
+            return thought, action
 
         prompt = self.prompt_template.format(
             agent_type=agent.agent_type.value.upper(),
@@ -94,7 +97,37 @@ class PanaLLMOrchestrator:
         )
 
         response = self.llm.invoke([HumanMessage(content=prompt)])
-        return response.content
+        thought = response.content
+        action = self.parse_action(thought)
+        return thought, action
+
+    def parse_action(self, thought: str) -> str:
+        """
+        Extract action token from LLM reasoning response.
+        Recognises: HOLD, LIQUIDATE_BROWN, BUY_GREEN, HEDGE, DELEVERAGE.
+        Defaults to HOLD if no recognised token is found.
+        """
+        import re
+
+        valid_actions = {
+            "HOLD",
+            "LIQUIDATE_BROWN",
+            "BUY_GREEN",
+            "HEDGE",
+            "DELEVERAGE",
+        }
+        # Search for any valid token in the response (case-insensitive)
+        found = re.findall(
+            r"\b(HOLD|LIQUIDATE_BROWN|BUY_GREEN|HEDGE|DELEVERAGE)\b",
+            thought.upper(),
+        )
+        if found:
+            # Return the first matched valid action, preserving canonical spelling
+            for action in valid_actions:
+                if action in found or action.replace("_", " ") in thought.upper():
+                    return action
+            return found[0]
+        return "HOLD"
 
     @staticmethod
     def _rule_based_reasoning(

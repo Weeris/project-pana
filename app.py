@@ -14,7 +14,7 @@ from src.intelligence.llm_orchestrator import PanaLLMOrchestrator
 
 # ── Page config ──────────────────────────────────────────────────────────────
 st.set_page_config(
-    page_title="Project PANA — พนา | Forester Control Panel",
+    page_title="Project PANA | Forester Control Panel",
     layout="wide",
     page_icon="🌲",
 )
@@ -60,7 +60,7 @@ if st.sidebar.button("🚀 Initialise / Reset Sandbox", use_container_width=True
         Jurisdiction("US", carbon_tax_rate=carbon_tax * 0.8, green_subsidy=green_subsidy * 0.9),
         Jurisdiction("SG", carbon_tax_rate=carbon_tax * 1.2, green_subsidy=green_subsidy * 1.1),
     ]
-    contagion = ContagionEngine(liquidation_threshold=shock_intensity)
+    contagion = ContagionEngine(liquidation_threshold=0.2)
     model = PanaModel(
         num_banks=num_banks,
         num_firms=num_firms,
@@ -100,9 +100,14 @@ if st.sidebar.button("▶️ Step Simulation", use_container_width=True):
                 bs.Brown_Assets *= (1 - shock_intensity)
 
             if orchestrator is not None:
-                thought = orchestrator.reason_for_agent(agent, new_policy)
+                thought, action = orchestrator.reason_for_agent(agent, new_policy)
+                model.execute_agent_action(agent, action)
                 agent.log_thought(thought)
                 thought_lines.append(thought)
+
+        # Apply contagion to all agents after the agent loop
+        for agent in model.agents:
+            model.apply_contagion_to_agent(agent, price_shock=shock_intensity)
 
         result = model.step()
         st.session_state.step = result["step"]
@@ -113,7 +118,7 @@ if st.sidebar.button("▶️ Step Simulation", use_container_width=True):
         st.session_state.thought_stream.extend(thought_lines[-10:])
 
 # ── Main Panel ───────────────────────────────────────────────────────────────
-st.title("🌲 Project PANA (พนา) — Green Swan Simulator")
+st.title("🌲 Project PANA — Green Swan Simulator")
 st.caption("Agentic AI · Cross-Border ESG Transition · Systemic Reflexivity")
 
 col_main, col_thought = st.columns([3, 1])
@@ -125,6 +130,11 @@ with col_main:
     mc2.metric("Avg ESG Score", m.get("avg_esg_score", "—"))
     mc3.metric("Liquidity Gap", f"${m.get('total_liquidity_gap', 0):,.0f}")
     mc4.metric("Contagion Risk", f"{m.get('contagion_risk_ratio', 0):.0%}")
+
+    mc5, mc6, mc7 = st.columns(3)
+    mc5.metric("Carbon Tax Burden", f"${m.get('total_carbon_tax_burden', 0):,.0f}")
+    mc6.metric("Transition Readiness", f"{m.get('avg_transition_readiness', 0):.0%}")
+    mc7.metric("Green Asset Ratio", f"{m.get('green_asset_ratio', 0):.0%}")
 
     # --- Liquidity Gap Chart ---
     st.subheader("📉 Liquidity Gaps Over Time")
@@ -218,6 +228,6 @@ with col_thought:
 # ── Footer ───────────────────────────────────────────────────────────────────
 st.divider()
 st.caption(
-    "Project PANA (พนา) · พนา means 'forest' in Thai — the Forester tends the systemic garden. "
+    "Project PANA · The Forester tends the systemic garden. "
     "MIT License · Agentic ESG Transition Simulator"
 )

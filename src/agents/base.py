@@ -1,6 +1,7 @@
 """BasePanaAgent: Financial State Machine with LLM Reasoning Hook."""
 
 from __future__ import annotations
+
 from dataclasses import dataclass, field
 from typing import Optional
 from enum import Enum
@@ -71,6 +72,12 @@ class BasePanaAgent:
         """ESG score driven by asset composition."""
         self.esg_score = 40.0 + 60.0 * green_ratio  # 40–100 range
 
+    def _recalc_esg(self) -> None:
+        """Recalculate ESG score from current balance sheet composition."""
+        total = self.balance_sheet.Green_Assets + self.balance_sheet.Brown_Assets
+        green_ratio = self.balance_sheet.Green_Assets / max(total, 1e-9)
+        self.update_esg_score(green_ratio)
+
     def log_thought(self, thought: str) -> None:
         self.thought_log.append(thought)
 
@@ -94,6 +101,51 @@ class BasePanaAgent:
         Returns dict of changes for Market Bridge.
         """
         return {"agent_id": self.agent_id, "action": action, "status": "ok"}
+
+    def execute_action(self, action: str, **kwargs) -> dict:
+        """
+        Execute a named action and update internal state accordingly.
+        Actions: HOLD, LIQUIDATE_BROWN, BUY_GREEN, HEDGE, DELEVERAGE
+        """
+        result = {"agent_id": self.agent_id, "action": action, "status": "ok"}
+
+        if action == "HOLD":
+            # No state change
+            pass
+
+        elif action == "LIQUIDATE_BROWN":
+            # Sell brown assets, convert to cash
+            brown_value = self.balance_sheet.Brown_Assets
+            self.balance_sheet.Cash += brown_value
+            self.balance_sheet.Brown_Assets = 0.0
+            result["brown_liquidated"] = brown_value
+
+        elif action == "BUY_GREEN":
+            # Use cash to purchase green assets
+            amount = kwargs.get("amount", self.balance_sheet.Cash * 0.5)
+            cost = min(amount, self.balance_sheet.Cash)
+            self.balance_sheet.Green_Assets += cost
+            self.balance_sheet.Cash -= cost
+            result["green_purchased"] = cost
+
+        elif action == "HEDGE":
+            # Placeholder: derivatives / carbon offsets to reduce risk
+            hedge_amount = kwargs.get("hedge_amount", 0.0)
+            result["hedge_applied"] = hedge_amount
+
+        elif action == "DELEVERAGE":
+            # Pay down liabilities using cash
+            payoff = min(self.balance_sheet.Cash, self.balance_sheet.Liabilities)
+            self.balance_sheet.Cash -= payoff
+            self.balance_sheet.Liabilities -= payoff
+            result["debt_paid"] = payoff
+
+        else:
+            result["status"] = "unknown_action"
+
+        # Recalculate ESG after structural changes
+        self._recalc_esg()
+        return result
 
     def step(self) -> None:
         """
